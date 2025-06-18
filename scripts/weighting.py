@@ -2,8 +2,8 @@ from functools import wraps
 from typing import Callable
 
 import gradio as gr
-
 from modules import scripts
+from modules.processing import StableDiffusionProcessing, StableDiffusionProcessingTxt2Img
 from modules.script_callbacks import on_app_started, on_script_unloaded
 from modules.sd_hijack_clip import FrozenCLIPEmbedderWithCustomWordsBase
 from modules.ui_components import InputAccordion
@@ -26,17 +26,18 @@ class ChunkWeight(scripts.Script):
     def ui(self, is_img2img):
         with InputAccordion(False, label=self.title()) as enable:
             weights = gr.Textbox(
-                value="",
+                label="Weighting",
                 placeholder="1.0, 2.0, 0.5",
+                value="",
                 lines=1,
                 max_lines=1,
-                label="Weighting",
             )
+
+            weights.do_not_save_to_config = True
 
         return [enable, weights]
 
-    def setup(self, p, enable: bool, weights: str):
-        global WEIGHTS
+    def setup(self, p: "StableDiffusionProcessing", enable: bool, weights: str):
         WEIGHTS.clear()
 
         if not enable:
@@ -48,6 +49,21 @@ class ChunkWeight(scripts.Script):
             except ValueError:
                 continue
 
+        p.cached_c = [None, None]
+        p.cached_uc = [None, None]
+        p.cached_hr_c = [None, None]
+        p.cached_hr_uc = [None, None]
+
+    def postprocess(self, *args):
+        enable: bool = args[2]
+        if not enable:
+            return
+
+        StableDiffusionProcessing.cached_c = [None, None]
+        StableDiffusionProcessing.cached_uc = [None, None]
+        StableDiffusionProcessingTxt2Img.cached_hr_c = [None, None]
+        StableDiffusionProcessingTxt2Img.cached_hr_uc = [None, None]
+
 
 def patch(*args, **kwargs):
     global original_process_texts
@@ -57,8 +73,9 @@ def patch(*args, **kwargs):
     original_process_tokens = FrozenCLIPEmbedderWithCustomWordsBase.process_tokens
 
     @wraps(original_process_texts)
-    def patched_process_texts(self, texts: list[str]):
+    def patched_process_texts(self: "FrozenCLIPEmbedderWithCustomWordsBase", texts: list[str]):
         global IS_NEGATIVE_PROMPT
+
         if hasattr(texts, "is_negative_prompt"):
             IS_NEGATIVE_PROMPT = texts.is_negative_prompt
         else:
@@ -70,21 +87,17 @@ def patch(*args, **kwargs):
         return original_process_texts(self, texts)
 
     @wraps(original_process_tokens)
-    def patched_process_tokens(
-        self: "FrozenCLIPEmbedderWithCustomWordsBase",
-        remade_batch_tokens: list,
-        batch_multipliers: list,
-    ):
+    def patched_process_tokens(self: "FrozenCLIPEmbedderWithCustomWordsBase", remade_batch_tokens: list, batch_multipliers: list):
         global INDEX
 
         if IS_NEGATIVE_PROMPT is False:
-            assert len(batch_multipliers) == 1
-            assert len(batch_multipliers[0]) == 77
+            batches: int = len(batch_multipliers)
+            context: int = len(batch_multipliers[0])  # 77
 
             if len(WEIGHTS) > INDEX:
-                print(INDEX, WEIGHTS[INDEX])
-                for i in range(77):
-                    batch_multipliers[0][i] *= WEIGHTS[INDEX]
+                for b in range(batches):
+                    for i in range(context):
+                        batch_multipliers[b][i] *= WEIGHTS[INDEX]
 
             INDEX += 1
 
