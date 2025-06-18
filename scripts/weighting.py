@@ -3,6 +3,7 @@ from typing import Callable
 
 import gradio as gr
 from modules import scripts
+from modules.infotext_utils import PasteField
 from modules.processing import StableDiffusionProcessing, StableDiffusionProcessingTxt2Img
 from modules.script_callbacks import on_app_started, on_script_unloaded
 from modules.sd_hijack_clip import FrozenCLIPEmbedderWithCustomWordsBase
@@ -39,6 +40,7 @@ class ChunkWeight(scripts.Script):
 
             weights.do_not_save_to_config = True
 
+        self.infotext_fields = [PasteField(weights, "Chunk Weights")]
         return [enable, weights]
 
     def setup(self, p: "StableDiffusionProcessing", enable: bool, weights: str):
@@ -53,6 +55,8 @@ class ChunkWeight(scripts.Script):
             except ValueError:
                 logger.error(f'Failed to parse "{v.strip()}" as number...')
                 continue
+
+        p.extra_generation_params["Chunk Weights"] = ", ".join(str(v) for v in WEIGHTS)
 
         if (weights := len(WEIGHTS)) != (chunks := len(p.prompt.split("BREAK"))):
             logger.warning(f'Mismatch number of Weights ({weights}) and BREAK-Chunks ({chunks})\n(Explicitly separating the chunks using the "BREAK" keyword is recommended)\n')

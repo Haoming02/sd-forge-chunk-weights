@@ -43,7 +43,7 @@ In the text field, enter a list of **comma-separated floats**, corresponding to 
 
 - [X] Validation
 - [X] Logging
-- [ ] Infotext
+- [X] Infotext
 - [ ] Update README
 
 <hr>
