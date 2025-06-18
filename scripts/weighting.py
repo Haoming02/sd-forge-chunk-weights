@@ -8,6 +8,8 @@ from modules.script_callbacks import on_app_started, on_script_unloaded
 from modules.sd_hijack_clip import FrozenCLIPEmbedderWithCustomWordsBase
 from modules.ui_components import InputAccordion
 
+from scripts.cw_logger import logger
+
 IS_NEGATIVE_PROMPT: bool = False
 WEIGHTS: list[float] = []
 INDEX: int = 0
@@ -17,6 +19,8 @@ original_process_tokens: Callable = None
 
 
 class ChunkWeight(scripts.Script):
+    _error_logged: bool
+
     def title(self):
         return "Chunk Weight"
 
@@ -47,12 +51,18 @@ class ChunkWeight(scripts.Script):
             try:
                 WEIGHTS.append(float(v))
             except ValueError:
+                logger.error(f'Failed to parse "{v.strip()}" as number...')
                 continue
+
+        if (weights := len(WEIGHTS)) != (chunks := len(p.prompt.split("BREAK"))):
+            logger.warning(f'Mismatch number of Weights ({weights}) and BREAK-Chunks ({chunks})\n(Explicitly separating the chunks using the "BREAK" keyword is recommended)\n')
 
         p.cached_c = [None, None]
         p.cached_uc = [None, None]
         p.cached_hr_c = [None, None]
         p.cached_hr_uc = [None, None]
+
+        ChunkWeight._error_logged = False
 
     def postprocess(self, *args):
         enable: bool = args[2]
@@ -63,6 +73,7 @@ class ChunkWeight(scripts.Script):
         StableDiffusionProcessing.cached_uc = [None, None]
         StableDiffusionProcessingTxt2Img.cached_hr_c = [None, None]
         StableDiffusionProcessingTxt2Img.cached_hr_uc = [None, None]
+        logger.debug("Cond Cache Reset")
 
 
 def patch(*args, **kwargs):
@@ -90,16 +101,26 @@ def patch(*args, **kwargs):
     def patched_process_tokens(self: "FrozenCLIPEmbedderWithCustomWordsBase", remade_batch_tokens: list, batch_multipliers: list):
         global INDEX
 
-        if IS_NEGATIVE_PROMPT is False:
+        if not WEIGHTS:
+            return original_process_tokens(self, remade_batch_tokens, batch_multipliers)
+
+        if INDEX >= 0 and IS_NEGATIVE_PROMPT is False:
             batches: int = len(batch_multipliers)
             context: int = len(batch_multipliers[0])  # 77
 
-            if len(WEIGHTS) > INDEX:
+            if len(WEIGHTS) == INDEX:
+                INDEX = -1
+                if not ChunkWeight._error_logged:
+                    logger.error("Insufficient number of Weights!\n(Default to 1.0 for the rest of the chunks)\n")
+                    ChunkWeight._error_logged = True
+
+            else:
+                logger.debug(f"Applied {WEIGHTS[INDEX]}x to Chunk {INDEX}")
                 for b in range(batches):
                     for i in range(context):
                         batch_multipliers[b][i] *= WEIGHTS[INDEX]
 
-            INDEX += 1
+                INDEX += 1
 
         return original_process_tokens(self, remade_batch_tokens, batch_multipliers)
 

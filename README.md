@@ -41,13 +41,10 @@ In the text field, enter a list of **comma-separated floats**, corresponding to 
 
 ## ToDo
 
-- [ ] Validation
-
-> [!Important]
-> Currently, the Extension does not validate the inputs, make sure you enter the correct number of weights yourself
-
-- [ ] Logging
+- [X] Validation
+- [X] Logging
 - [ ] Infotext
+- [ ] Update README
 
 <hr>
 
