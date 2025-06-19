@@ -1,14 +1,11 @@
 # SD Forge Chunk Weights
-This is an Extension for [Forge Classic](https://github.com/Haoming02/sd-webui-forge-classic), which allows you to control the weighting of each prompt chunk *(**i.e.** every 75 tokens)*.
+This is an Extension for [Forge Classic](https://github.com/Haoming02/sd-webui-forge-classic), which allows you to control the weighting for each chunk of prompts *(**i.e.** every 75 tokens)*.
 
-<p align="right"><b>W.I.P</b></p>
-
-## Features
-
-In the WebUI, you can use the keyword **`BREAK`** to manually separate prompts into different chunks. This Extension adds a text field that also allows you to specify the weighting of each chunk.
+> [!Tip]
+> In the WebUI, you can use the keyword **`BREAK`** to manually separate prompts into different chunks to group similar concepts together
 
 ## How to Use
-In the text field, enter a list of **comma-separated floats**, corresponding to the weights of each chunk in order *(the default weight is `1.0`)*
+In the `Weighting` text field, enter a list of **comma-separated floats**, corresponding to the weights of each chunk in order *(the default weight is `1.0`)*
 
 ## Examples
 
@@ -38,13 +35,6 @@ In the text field, enter a list of **comma-separated floats**, corresponding to 
         </td>
     </tr>
 </table>
-
-## ToDo
-
-- [X] Validation
-- [X] Logging
-- [X] Infotext
-- [ ] Update README
 
 <hr>
 
